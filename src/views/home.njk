@@ -1,0 +1,80 @@
+{% include "partials/header.njk" %}
+
+<main class="page">
+  <section class="sidebar">
+    <h1>Tableau: {{ board.title }}</h1>
+    <p>Slug: <strong>{{ board.slug }}</strong></p>
+    <p>Double-clic (ou double tap) pour creer un post-it.</p>
+
+    <form class="panel" action="/" method="get" onsubmit="event.preventDefault(); const slug = this.slug.value.trim().toLowerCase(); window.location.href = slug ? '/' + slug : '/';">
+      <h2>Changer de tableau</h2>
+      <label for="slug">Nom du tableau</label>
+      <input id="slug" name="slug" type="text" placeholder="ex: reseau" />
+      <button type="submit">Ouvrir</button>
+    </form>
+
+    {% if not currentUser %}
+      <form class="panel" action="/login" method="post">
+        <h2>Connexion</h2>
+        <input type="hidden" name="boardSlug" value="{{ board.slug }}" />
+        <label for="username">Utilisateur</label>
+        <input id="username" name="username" type="text" required />
+        <label for="password">Mot de passe</label>
+        <input id="password" name="password" type="password" required />
+        <button type="submit">Se connecter</button>
+      </form>
+    {% else %}
+      <section class="panel">
+        <h2>Session</h2>
+        <p>Connecte en tant que <strong>{{ currentUser.username }}</strong>.</p>
+        <p>Droits:</p>
+        <ul class="permission-list">
+          <li>Creation: {{ 'oui' if currentUser.permissions.canCreate else 'non' }}</li>
+          <li>Modification: {{ 'oui' if currentUser.permissions.canUpdate else 'non' }}</li>
+          <li>Suppression: {{ 'oui' if currentUser.permissions.canDelete else 'non' }}</li>
+          <li>Admin: {{ 'oui' if currentUser.permissions.isAdmin else 'non' }}</li>
+        </ul>
+      </section>
+    {% endif %}
+
+    {% if not currentUser %}
+      <section class="panel">
+        <h2>Utilisateur guest</h2>
+        <p>En mode non-connecte, tu utilises les droits du compte <strong>guest</strong>.</p>
+        <ul class="permission-list">
+          <li>Creation: {{ 'oui' if permissions.canCreate else 'non' }}</li>
+          <li>Modification: {{ 'oui' if permissions.canUpdate else 'non' }}</li>
+          <li>Suppression: {{ 'oui' if permissions.canDelete else 'non' }}</li>
+        </ul>
+      </section>
+    {% endif %}
+  </section>
+
+  <section
+    class="board"
+    data-board-slug="{{ board.slug }}"
+    data-current-user-id="{% if currentUser %}{{ currentUser.id }}{% endif %}"
+    data-can-create="{{ '1' if permissions.canCreate else '0' }}"
+    data-can-update="{{ '1' if permissions.canUpdate else '0' }}"
+    data-can-delete="{{ '1' if permissions.canDelete else '0' }}"
+    data-is-admin="{{ '1' if permissions.isAdmin else '0' }}"
+  >
+    <div class="board-empty">
+      <p>Aucun post-it pour le moment.</p>
+      <p>Cree le premier avec un double-clic.</p>
+    </div>
+  </section>
+</main>
+
+<dialog id="postit-modal" class="modal">
+  <form method="dialog" class="modal-card" id="postit-form">
+    <h2 id="postit-modal-title">Nouveau post-it</h2>
+    <textarea id="postit-content" name="content" maxlength="300" required></textarea>
+    <menu class="modal-actions">
+      <button type="button" id="postit-cancel" class="secondary">Annuler</button>
+      <button type="submit" id="postit-submit">Valider</button>
+    </menu>
+  </form>
+</dialog>
+
+{% include "partials/footer.njk" %}
