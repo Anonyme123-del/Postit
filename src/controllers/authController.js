@@ -6,7 +6,11 @@ async function showSignupPage(req, res) {
 
 async function signup(req, res) {
   try {
-    const { username, password } = req.body;
+    const { username, password, passwordConfirm } = req.body;
+
+    if (password !== passwordConfirm) {
+        throw new Error('Les mots de passe ne correspondent pas.');
+    }
 
     const user = await authService.registerUser(username, password);
 

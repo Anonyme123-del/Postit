@@ -7,6 +7,9 @@
 <body>
   <h1>Inscription</h1>
 
+   {% if error %}
+      <p style="color:red;">{{ error }}</p>
+   {% endif %}
   <form class="panel auth-panel" action="/signup" method="post">
     <h1>Creer un compte</h1>
     <label for="username">Nom d'utilisateur</label>
@@ -19,7 +22,6 @@
     <input id="passwordConfirm" name="passwordConfirm" type="password" required />
 
     <button type="submit">S'inscrire</button>
-    <p>Compte admin de dev cree automatiquement a l'init DB: <strong>admin / admin123</strong></p>
   </form>
 </body>
 </html>

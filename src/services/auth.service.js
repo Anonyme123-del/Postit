@@ -32,8 +32,28 @@ function validatePassword(password) {
     throw new Error('Mot de passe requis.');
   }
 
-  if (cleanPassword.length < 6) {
-    throw new Error('Le mot de passe doit contenir au moins 6 caractères.');
+  if (cleanPassword.length < 8) {
+    throw new Error('Le mot de passe doit contenir au moins 8 caractères.');
+  }
+
+  if (cleanPassword.length > 100) {
+    throw new Error('Le mot de passe est trop long.');
+  }
+
+  if (!/[a-z]/.test(cleanPassword)) {
+    throw new Error('Le mot de passe doit contenir au moins une lettre minuscule.');
+  }
+
+  if (!/[A-Z]/.test(cleanPassword)) {
+    throw new Error('Le mot de passe doit contenir au moins une lettre majuscule.');
+  }
+
+  if (!/[0-9]/.test(cleanPassword)) {
+    throw new Error('Le mot de passe doit contenir au moins un chiffre.');
+  }
+
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(cleanPassword)) {
+    throw new Error('Le mot de passe doit contenir au moins un caractère spécial.');
   }
 
   return cleanPassword;
