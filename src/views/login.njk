@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Connexion</title>
+</head>
+<body>
+  <h1>Connexion</h1>
+
+  {% if error %}
+    <p style="color:red;">{{ error }}</p>
+  {% endif %}
+
+  <form method="POST" action="/login" novalidate>
+    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+    <div>
+      <label for="username">Nom d'utilisateur</label>
+      <input
+        id="username"
+        type="text"
+        name="username"
+        value="{{ old.username | default('') }}"
+        required
+        minlength="3"
+        maxlength="50"
+      >
+    </div>
+
+    <div>
+      <label for="password">Mot de passe</label>
+      <input
+        id="password"
+        type="password"
+        name="password"
+        required
+      >
+    </div>
+
+    <button type="submit">Se connecter</button>
+  </form>
+</body>
+</html>

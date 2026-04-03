@@ -9,6 +9,24 @@ async function findByUsername(username) {
   );
 }
 
+async function findUserWithPermissionsByUsername(username) {
+  return get(
+    `SELECT 
+        u.id,
+        u.username,
+        u.password_hash,
+        u.created_at,
+        up.can_create,
+        up.can_update,
+        up.can_delete,
+        up.is_admin
+     FROM users u
+     LEFT JOIN user_permissions up ON up.user_id = u.id
+     WHERE u.username = ?`,
+    [username]
+  );
+}
+
 async function createUser(username, passwordHash) {
   return run(
     `INSERT INTO users (username, password_hash)
@@ -27,6 +45,7 @@ async function createDefaultPermissions(userId) {
 
 module.exports = {
   findByUsername,
+  findUserWithPermissionsByUsername,
   createUser,
   createDefaultPermissions
 };

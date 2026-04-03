@@ -2,6 +2,15 @@ const bcrypt = require('bcrypt');
 const env = require('../config/env');
 const userModel = require('../models/userModel');
 
+function normalizePermissions(row) {
+  return {
+    canCreate: Boolean(row?.can_create),
+    canUpdate: Boolean(row?.can_update),
+    canDelete: Boolean(row?.can_delete),
+    isAdmin: Boolean(row?.is_admin)
+  };
+}
+
 function validateUsername(username) {
   const cleanUsername = String(username || '').trim().toLowerCase();
 
@@ -35,8 +44,8 @@ function validatePassword(password) {
     throw new Error('Mot de passe requis.');
   }
 
-  if (cleanPassword.length < 8) {
-    throw new Error('Le mot de passe doit contenir au moins 8 caractères.');
+  if (cleanPassword.length < 12) {
+    throw new Error('Le mot de passe doit contenir au moins 12 caractères.');
   }
 
   if (cleanPassword.length > 100) {
@@ -55,7 +64,7 @@ function validatePassword(password) {
     throw new Error('Le mot de passe doit contenir au moins un chiffre.');
   }
 
-  if (!/[!@#$%^&*(),.?":{}|<>_\-+=/\\[\];'`~]/.test(cleanPassword)) {
+  if (!/[!@#$%^&*(),.?":{}|<>_\-+=/\\[\];\'`~]/.test(cleanPassword)) {
     throw new Error('Le mot de passe doit contenir au moins un caractère spécial.');
   }
 
@@ -88,6 +97,38 @@ async function registerUser(username, password) {
   };
 }
 
+async function loginUser(username, password) {
+  const cleanUsername = String(username || '').trim().toLowerCase();
+  const cleanPassword = String(password || '');
+
+  console.log('LOGIN username reçu =', cleanUsername);
+
+  if (!cleanUsername || !cleanPassword) {
+    throw new Error('Identifiants invalides.');
+  }
+
+  const user = await userModel.findUserWithPermissionsByUsername(cleanUsername);
+  console.log('USER trouvé =', user);
+
+  if (!user) {
+    throw new Error('Identifiants invalides.');
+  }
+
+  const passwordMatches = await bcrypt.compare(cleanPassword, user.password_hash);
+  console.log('PASSWORD MATCHES =', passwordMatches);
+
+  if (!passwordMatches) {
+    throw new Error('Identifiants invalides.');
+  }
+
+  return {
+    id: user.id,
+    username: user.username,
+    permissions: normalizePermissions(user)
+  };
+}
+
 module.exports = {
-  registerUser
+  registerUser,
+  loginUser
 };
