@@ -16,19 +16,74 @@ function mapPostitRow(row) {
   };
 }
 
-async function getBoardBySlug(slug) {
+function normalizeBoardSlug(slug) {
   const safeSlug = String(slug || 'main').trim().toLowerCase();
-  return get('SELECT id, slug, title FROM boards WHERE slug = ?', [safeSlug]);
+
+  if (!safeSlug) {
+    return 'main';
+  }
+
+  return safeSlug;
+}
+
+function isValidBoardSlug(slug) {
+  return /^[a-z0-9_-]+$/.test(slug);
+}
+
+function normalizeCoordinate(value) {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.round(parsed));
+}
+
+async function getBoardBySlug(slug) {
+  const safeSlug = normalizeBoardSlug(slug);
+
+  return get(
+    'SELECT id, slug, title, created_at FROM boards WHERE slug = ?',
+    [safeSlug]
+  );
+}
+
+async function getBoardById(boardId) {
+  const numericBoardId = Number(boardId);
+
+  if (!Number.isInteger(numericBoardId)) {
+    return null;
+  }
+
+  return get(
+    'SELECT id, slug, title, created_at FROM boards WHERE id = ?',
+    [numericBoardId]
+  );
 }
 
 async function getOrCreateBoard(slug) {
-  const safeSlug = String(slug || 'main').trim().toLowerCase();
+  const safeSlug = normalizeBoardSlug(slug);
+
+  if (!isValidBoardSlug(safeSlug)) {
+    throw new Error('Slug de tableau invalide.');
+  }
+
   let board = await getBoardBySlug(safeSlug);
 
   if (!board) {
     const title = safeSlug === 'main' ? 'Tableau principal' : `Tableau ${safeSlug}`;
-    const created = await run('INSERT INTO boards (slug, title) VALUES (?, ?)', [safeSlug, title]);
-    board = { id: created.lastID, slug: safeSlug, title };
+    const created = await run(
+      'INSERT INTO boards (slug, title) VALUES (?, ?)',
+      [safeSlug, title]
+    );
+
+    board = {
+      id: created.lastID,
+      slug: safeSlug,
+      title,
+      created_at: null
+    };
   }
 
   return board;
@@ -46,23 +101,45 @@ async function listBoards() {
 }
 
 async function createBoard(slug, title) {
-  const safeSlug = String(slug || '').trim().toLowerCase();
-  if (!safeSlug || !/^[a-z0-9_-]+$/.test(safeSlug)) {
+  const safeSlug = normalizeBoardSlug(slug);
+
+  if (!safeSlug || !isValidBoardSlug(safeSlug)) {
     throw new Error('Slug invalide. Utilise seulement lettres, chiffres, _ ou -.');
   }
 
   const existing = await getBoardBySlug(safeSlug);
+
   if (existing) {
     throw new Error('Ce tableau existe deja.');
   }
 
   const cleanTitle = String(title || '').trim() || `Tableau ${safeSlug}`;
-  const inserted = await run('INSERT INTO boards (slug, title) VALUES (?, ?)', [safeSlug, cleanTitle]);
-  return get('SELECT id, slug, title, created_at FROM boards WHERE id = ?', [inserted.lastID]);
+
+  const inserted = await run(
+    'INSERT INTO boards (slug, title) VALUES (?, ?)',
+    [safeSlug, cleanTitle]
+  );
+
+  return get(
+    'SELECT id, slug, title, created_at FROM boards WHERE id = ?',
+    [inserted.lastID]
+  );
 }
 
 async function deleteBoardById(boardId) {
-  return run('DELETE FROM boards WHERE id = ?', [boardId]);
+  const numericBoardId = Number(boardId);
+
+  if (!Number.isInteger(numericBoardId)) {
+    throw new Error('Identifiant de tableau invalide.');
+  }
+
+  const existing = await getBoardById(numericBoardId);
+
+  if (!existing) {
+    throw new Error('Tableau introuvable.');
+  }
+
+  return run('DELETE FROM boards WHERE id = ?', [numericBoardId]);
 }
 
 async function listPostits(boardSlug) {
@@ -86,6 +163,12 @@ async function listPostits(boardSlug) {
 }
 
 async function getPostitById(postitId) {
+  const numericPostitId = Number(postitId);
+
+  if (!Number.isInteger(numericPostitId)) {
+    return null;
+  }
+
   const row = await get(
     `SELECT p.id, p.board_id, b.slug AS board_slug, p.author_id, u.username AS author_username,
             p.content, p.pos_x, p.pos_y, p.z_index, p.created_at, p.updated_at
@@ -93,25 +176,54 @@ async function getPostitById(postitId) {
      JOIN users u ON u.id = p.author_id
      JOIN boards b ON b.id = p.board_id
      WHERE p.id = ?`,
-    [postitId]
+    [numericPostitId]
   );
 
   return row ? mapPostitRow(row) : null;
 }
 
 async function getNextZIndex(boardId) {
-  const row = await get('SELECT COALESCE(MAX(z_index), 0) AS max_z FROM postits WHERE board_id = ?', [boardId]);
+  const numericBoardId = Number(boardId);
+
+  if (!Number.isInteger(numericBoardId)) {
+    throw new Error('Identifiant de tableau invalide.');
+  }
+
+  const row = await get(
+    'SELECT COALESCE(MAX(z_index), 0) AS max_z FROM postits WHERE board_id = ?',
+    [numericBoardId]
+  );
+
   return Number(row?.max_z || 0) + 1;
 }
 
 async function createPostit({ boardSlug, authorId, content, x, y }) {
+  const numericAuthorId = Number(authorId);
+
+  if (!Number.isInteger(numericAuthorId)) {
+    throw new Error('Auteur invalide.');
+  }
+
+  const cleanContent = String(content || '').trim();
+
+  if (!cleanContent) {
+    throw new Error('Le contenu du post-it est obligatoire.');
+  }
+
   const board = await getOrCreateBoard(boardSlug);
   const zIndex = await getNextZIndex(board.id);
 
   const inserted = await run(
     `INSERT INTO postits (board_id, author_id, content, pos_x, pos_y, z_index)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [board.id, authorId, String(content || '').trim(), Number(x), Number(y), zIndex]
+    [
+      board.id,
+      numericAuthorId,
+      cleanContent,
+      normalizeCoordinate(x),
+      normalizeCoordinate(y),
+      zIndex
+    ]
   );
 
   return getPostitById(inserted.lastID);
@@ -119,13 +231,20 @@ async function createPostit({ boardSlug, authorId, content, x, y }) {
 
 async function updatePostit({ postitId, content, x, y, bringToFront }) {
   const postit = await getPostitById(postitId);
+
   if (!postit) {
     return null;
   }
 
-  const newContent = content === undefined ? postit.content : String(content).trim();
-  const newX = x === undefined ? postit.x : Number(x);
-  const newY = y === undefined ? postit.y : Number(y);
+  const newContent =
+    content === undefined ? postit.content : String(content || '').trim();
+
+  const newX =
+    x === undefined ? postit.x : normalizeCoordinate(x);
+
+  const newY =
+    y === undefined ? postit.y : normalizeCoordinate(y);
+
   let newZ = postit.zIndex;
 
   if (bringToFront) {
@@ -136,14 +255,26 @@ async function updatePostit({ postitId, content, x, y, bringToFront }) {
     `UPDATE postits
      SET content = ?, pos_x = ?, pos_y = ?, z_index = ?, updated_at = CURRENT_TIMESTAMP
      WHERE id = ?`,
-    [newContent, newX, newY, newZ, postitId]
+    [newContent, newX, newY, newZ, postit.id]
   );
 
-  return getPostitById(postitId);
+  return getPostitById(postit.id);
 }
 
 async function deletePostit(postitId) {
-  return run('DELETE FROM postits WHERE id = ?', [postitId]);
+  const numericPostitId = Number(postitId);
+
+  if (!Number.isInteger(numericPostitId)) {
+    throw new Error('Identifiant de post-it invalide.');
+  }
+
+  const existing = await getPostitById(numericPostitId);
+
+  if (!existing) {
+    throw new Error('Post-it introuvable.');
+  }
+
+  return run('DELETE FROM postits WHERE id = ?', [numericPostitId]);
 }
 
 module.exports = {
@@ -151,8 +282,10 @@ module.exports = {
   createPostit,
   deleteBoardById,
   deletePostit,
-  getPostitById,
+  getBoardById,
+  getBoardBySlug,
   getOrCreateBoard,
+  getPostitById,
   listBoards,
   listPostits,
   updatePostit

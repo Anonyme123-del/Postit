@@ -25,11 +25,15 @@ function verifyCsrfToken(req, res, next) {
   const token = tokenFromBody || tokenFromHeader;
 
   if (!req.session || !req.session.csrfToken) {
-    return res.status(403).send('Session CSRF invalide.');
+    const error = new Error('Session CSRF invalide.');
+    error.status = 403;
+    return next(error);
   }
 
   if (!token || token !== req.session.csrfToken) {
-    return res.status(403).send('Jeton CSRF invalide.');
+    const error = new Error('Jeton CSRF invalide.');
+    error.status = 403;
+    return next(error);
   }
 
   next();

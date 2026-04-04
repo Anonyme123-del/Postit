@@ -1,25 +1,29 @@
 const postitService = require('../services/postit.service');
 
-async function renderBoard(req, res, boardSlug) {
-  const boardData = await postitService.listPostits(boardSlug);
+async function renderBoard(req, res, next, boardSlug) {
+  try {
+    const boardData = await postitService.listPostits(boardSlug);
 
-  res.render('home', {
-    title: 'Secure Post-it',
-    postits: boardData.postits,
-    board: boardData.board
-  });
+    return res.render('home', {
+      title: 'Secure Post-it',
+      postits: boardData.postits,
+      board: boardData.board
+    });
+  } catch (error) {
+    return next(error);
+  }
 }
 
-async function home(req, res) {
-  await renderBoard(req, res, 'main');
+async function home(req, res, next) {
+  return renderBoard(req, res, next, 'main');
 }
 
-async function board(req, res) {
-  await renderBoard(req, res, req.params.boardSlug);
+async function board(req, res, next) {
+  return renderBoard(req, res, next, req.params.boardSlug);
 }
 
 function health(req, res) {
-  res.json({ ok: true });
+  return res.json({ ok: true });
 }
 
 module.exports = {

@@ -12,7 +12,9 @@ function blockCrossSiteStateChanges(req, res, next) {
   }
 
   if (site === 'cross-site') {
-    return res.status(403).send('Requête cross-site bloquée.');
+    const error = new Error('Requête cross-site bloquée.');
+    error.status = 403;
+    return next(error);
   }
 
   next();

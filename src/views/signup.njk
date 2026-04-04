@@ -1,19 +1,63 @@
 {% include "partials/header.njk" %}
 
 <main class="auth-page">
-  <form class="panel auth-panel" action="/signup" method="post">
-    <h1>Creer un compte</h1>
+  <form class="panel auth-panel" action="/signup" method="post" novalidate>
+    <input type="hidden" name="_csrf" value="{{ csrfToken }}" />
+
+    <h1>Créer un compte</h1>
+
+    {% if errors and errors.length %}
+      <div class="alert alert-error">
+        <p><strong>Veuillez corriger les erreurs suivantes :</strong></p>
+        <ul>
+          {% for error in errors %}
+            <li>{{ error }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
     <label for="username">Nom d'utilisateur</label>
-    <input id="username" name="username" type="text" required />
+    <input
+      id="username"
+      name="username"
+      type="text"
+      value="{{ formData.username if formData else '' }}"
+      required
+      autocomplete="username"
+    />
 
     <label for="password">Mot de passe</label>
-    <input id="password" name="password" type="password" required />
+    <input
+      id="password"
+      name="password"
+      type="password"
+      required
+      autocomplete="new-password"
+    />
 
     <label for="passwordConfirm">Confirmation</label>
-    <input id="passwordConfirm" name="passwordConfirm" type="password" required />
+    <input
+      id="passwordConfirm"
+      name="passwordConfirm"
+      type="password"
+      required
+      autocomplete="new-password"
+    />
+
+    <div class="password-rules">
+      <p><strong>Le mot de passe doit contenir :</strong></p>
+      <ul>
+        <li>au moins 10 caractères</li>
+        <li>une lettre majuscule</li>
+        <li>une lettre minuscule</li>
+        <li>un chiffre</li>
+        <li>un caractère spécial</li>
+        <li>aucun espace</li>
+      </ul>
+    </div>
 
     <button type="submit">S'inscrire</button>
-    <p>Compte admin de dev cree automatiquement a l'init DB: <strong>admin / admin123</strong></p>
   </form>
 </main>
 

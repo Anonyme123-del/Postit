@@ -7,6 +7,7 @@ function sanitizeContent(value) {
 
 function normalizeCoordinate(value) {
   const parsed = Number(value);
+
   if (!Number.isFinite(parsed)) {
     return 0;
   }
@@ -22,153 +23,208 @@ function canEditOrDelete(user, postit) {
   return user.permissions.isAdmin || user.id === postit.authorId;
 }
 
-async function list(req, res) {
-  const boardSlug = req.params.boardSlug || req.query.board || 'main';
-  const boardData = await postitService.listPostits(boardSlug);
-
-  res.json({
-    board: boardData.board,
-    postits: boardData.postits,
-    user: req.session.user || null,
-    permissions: res.locals.permissions
-  });
+function getCurrentPermissions(req, res) {
+  return req.session.user?.permissions || res.locals.permissions || {
+    canCreate: false,
+    canUpdate: false,
+    canDelete: false,
+    isAdmin: false
+  };
 }
 
-async function add(req, res) {
-  const currentUser = req.session.user;
-  if (!currentUser.permissions.canCreate) {
-    res.status(403).json({ error: 'Vous ne pouvez pas creer de post-it.' });
-    return;
+async function list(req, res, next) {
+  try {
+    const boardSlug = req.params.boardSlug || req.query.board || 'main';
+    const boardData = await postitService.listPostits(boardSlug);
+
+    return res.json({
+      board: boardData.board,
+      postits: boardData.postits,
+      user: req.session.user || null,
+      permissions: res.locals.permissions
+    });
+  } catch (error) {
+    return next(error);
   }
-
-  const boardSlug = req.body.boardSlug || 'main';
-  const content = sanitizeContent(req.body.content);
-  const x = normalizeCoordinate(req.body.x);
-  const y = normalizeCoordinate(req.body.y);
-
-  if (!content) {
-    res.status(400).json({ error: 'Le contenu est obligatoire.' });
-    return;
-  }
-
-  const created = await postitService.createPostit({
-    boardSlug,
-    authorId: currentUser.id,
-    content,
-    x,
-    y
-  });
-
-  realtimeService.publish(created.boardSlug, 'postit-created', { postit: created });
-  res.status(201).json({ ok: true, postit: created });
 }
 
-async function remove(req, res) {
-  const postitId = Number(req.body.id);
-  if (!Number.isInteger(postitId)) {
-    res.status(400).json({ error: 'Identifiant invalide.' });
-    return;
-  }
+async function add(req, res, next) {
+  try {
+    const currentUser = req.session.user || null;
+    const permissions = getCurrentPermissions(req, res);
 
-  const existing = await postitService.getPostitById(postitId);
-  if (!existing) {
-    res.status(404).json({ error: 'Post-it introuvable.' });
-    return;
-  }
+    if (!permissions.canCreate) {
+      return res.status(403).json({ error: 'Vous ne pouvez pas creer de post-it.' });
+    }
 
-  if (!canEditOrDelete(req.session.user, existing) || !req.session.user.permissions.canDelete) {
-    res.status(403).json({ error: 'Vous ne pouvez pas supprimer ce post-it.' });
-    return;
-  }
+    if (!currentUser) {
+      return res.status(403).json({ error: 'Vous devez etre connecte pour creer un post-it.' });
+    }
 
-  await postitService.deletePostit(postitId);
-  realtimeService.publish(existing.boardSlug, 'postit-deleted', { id: postitId });
-  res.json({ ok: true, id: postitId });
+    const boardSlug = req.body.boardSlug || 'main';
+    const content = sanitizeContent(req.body.content);
+    const x = normalizeCoordinate(req.body.x);
+    const y = normalizeCoordinate(req.body.y);
+
+    if (!content) {
+      return res.status(400).json({ error: 'Le contenu est obligatoire.' });
+    }
+
+    const created = await postitService.createPostit({
+      boardSlug,
+      authorId: currentUser.id,
+      content,
+      x,
+      y
+    });
+
+    realtimeService.publish(created.boardSlug, 'postit-created', { postit: created });
+
+    return res.status(201).json({ ok: true, postit: created });
+  } catch (error) {
+    return next(error);
+  }
 }
 
-async function update(req, res) {
-  const postitId = Number(req.body.id);
-  const content = sanitizeContent(req.body.content);
+async function remove(req, res, next) {
+  try {
+    const currentUser = req.session.user || null;
+    const permissions = getCurrentPermissions(req, res);
+    const postitId = Number(req.body.id);
 
-  if (!Number.isInteger(postitId)) {
-    res.status(400).json({ error: 'Identifiant invalide.' });
-    return;
+    if (!Number.isInteger(postitId)) {
+      return res.status(400).json({ error: 'Identifiant invalide.' });
+    }
+
+    const existing = await postitService.getPostitById(postitId);
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Post-it introuvable.' });
+    }
+
+    if (!currentUser) {
+      return res.status(403).json({ error: 'Vous devez etre connecte pour supprimer un post-it.' });
+    }
+
+    if (!canEditOrDelete(currentUser, existing) || !permissions.canDelete) {
+      return res.status(403).json({ error: 'Vous ne pouvez pas supprimer ce post-it.' });
+    }
+
+    await postitService.deletePostit(postitId);
+    realtimeService.publish(existing.boardSlug, 'postit-deleted', { id: postitId });
+
+    return res.json({ ok: true, id: postitId });
+  } catch (error) {
+    return next(error);
   }
-
-  if (!content) {
-    res.status(400).json({ error: 'Le contenu est obligatoire.' });
-    return;
-  }
-
-  const existing = await postitService.getPostitById(postitId);
-  if (!existing) {
-    res.status(404).json({ error: 'Post-it introuvable.' });
-    return;
-  }
-
-  if (!canEditOrDelete(req.session.user, existing) || !req.session.user.permissions.canUpdate) {
-    res.status(403).json({ error: 'Vous ne pouvez pas modifier ce post-it.' });
-    return;
-  }
-
-  const updated = await postitService.updatePostit({
-    postitId,
-    content,
-    bringToFront: true
-  });
-
-  realtimeService.publish(updated.boardSlug, 'postit-updated', { postit: updated });
-  res.json({ ok: true, postit: updated });
 }
 
-async function move(req, res) {
-  const postitId = Number(req.body.id);
-  if (!Number.isInteger(postitId)) {
-    res.status(400).json({ error: 'Identifiant invalide.' });
-    return;
+async function update(req, res, next) {
+  try {
+    const currentUser = req.session.user || null;
+    const permissions = getCurrentPermissions(req, res);
+    const postitId = Number(req.body.id);
+    const content = sanitizeContent(req.body.content);
+
+    if (!Number.isInteger(postitId)) {
+      return res.status(400).json({ error: 'Identifiant invalide.' });
+    }
+
+    if (!content) {
+      return res.status(400).json({ error: 'Le contenu est obligatoire.' });
+    }
+
+    const existing = await postitService.getPostitById(postitId);
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Post-it introuvable.' });
+    }
+
+    if (!currentUser) {
+      return res.status(403).json({ error: 'Vous devez etre connecte pour modifier un post-it.' });
+    }
+
+    if (!canEditOrDelete(currentUser, existing) || !permissions.canUpdate) {
+      return res.status(403).json({ error: 'Vous ne pouvez pas modifier ce post-it.' });
+    }
+
+    const updated = await postitService.updatePostit({
+      postitId,
+      content,
+      bringToFront: true
+    });
+
+    realtimeService.publish(updated.boardSlug, 'postit-updated', { postit: updated });
+
+    return res.json({ ok: true, postit: updated });
+  } catch (error) {
+    return next(error);
   }
-
-  const existing = await postitService.getPostitById(postitId);
-  if (!existing) {
-    res.status(404).json({ error: 'Post-it introuvable.' });
-    return;
-  }
-
-  if (!canEditOrDelete(req.session.user, existing) || !req.session.user.permissions.canUpdate) {
-    res.status(403).json({ error: 'Vous ne pouvez pas deplacer ce post-it.' });
-    return;
-  }
-
-  const updated = await postitService.updatePostit({
-    postitId,
-    x: normalizeCoordinate(req.body.x),
-    y: normalizeCoordinate(req.body.y),
-    bringToFront: true
-  });
-
-  realtimeService.publish(updated.boardSlug, 'postit-moved', { postit: updated });
-  res.json({ ok: true, postit: updated });
 }
 
-async function events(req, res) {
-  const boardSlug = req.params.boardSlug || req.query.board || 'main';
+async function move(req, res, next) {
+  try {
+    const currentUser = req.session.user || null;
+    const permissions = getCurrentPermissions(req, res);
+    const postitId = Number(req.body.id);
 
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders();
+    if (!Number.isInteger(postitId)) {
+      return res.status(400).json({ error: 'Identifiant invalide.' });
+    }
 
-  res.write('event: connected\ndata: {"ok":true}\n\n');
+    const existing = await postitService.getPostitById(postitId);
 
-  const unsubscribe = realtimeService.subscribe(boardSlug, res);
-  const ping = setInterval(() => {
-    res.write('event: ping\ndata: {}\n\n');
-  }, 20000);
+    if (!existing) {
+      return res.status(404).json({ error: 'Post-it introuvable.' });
+    }
 
-  req.on('close', () => {
-    clearInterval(ping);
-    unsubscribe();
-  });
+    if (!currentUser) {
+      return res.status(403).json({ error: 'Vous devez etre connecte pour deplacer un post-it.' });
+    }
+
+    if (!canEditOrDelete(currentUser, existing) || !permissions.canUpdate) {
+      return res.status(403).json({ error: 'Vous ne pouvez pas deplacer ce post-it.' });
+    }
+
+    const updated = await postitService.updatePostit({
+      postitId,
+      x: normalizeCoordinate(req.body.x),
+      y: normalizeCoordinate(req.body.y),
+      bringToFront: true
+    });
+
+    realtimeService.publish(updated.boardSlug, 'postit-moved', { postit: updated });
+
+    return res.json({ ok: true, postit: updated });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function events(req, res, next) {
+  try {
+    const boardSlug = req.params.boardSlug || req.query.board || 'main';
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    res.write('event: connected\ndata: {"ok":true}\n\n');
+
+    const unsubscribe = realtimeService.subscribe(boardSlug, res);
+
+    const ping = setInterval(() => {
+      res.write('event: ping\ndata: {}\n\n');
+    }, 20000);
+
+    req.on('close', () => {
+      clearInterval(ping);
+      unsubscribe();
+    });
+  } catch (error) {
+    return next(error);
+  }
 }
 
 module.exports = {

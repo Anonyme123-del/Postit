@@ -2,8 +2,13 @@ const path = require('path');
 const express = require('express');
 const nunjucks = require('nunjucks');
 const session = require('express-session');
+
 const sessionConfig = require('./config/session');
 const authService = require('./services/auth.service');
+
+const { ensureCsrfToken, verifyCsrfToken } = require('./middleware/csrfMiddleware');
+const { blockCrossSiteStateChanges } = require('./middleware/fetchMetadataMiddleware');
+
 const indexRoutes = require('./routes/index.routes');
 const authRoutes = require('./routes/auth.routes');
 const postitRoutes = require('./routes/postit.routes');
@@ -25,6 +30,21 @@ app.use(express.json());
 app.use(session(sessionConfig));
 app.use(express.static(path.join(process.cwd(), 'public')));
 
+/**
+ * 1. Crée / expose le token CSRF à toutes les vues
+ */
+app.use(ensureCsrfToken);
+
+/**
+ * 2. Bloque certaines requêtes cross-site avant traitement
+ */
+app.use(blockCrossSiteStateChanges);
+
+/**
+ * 3. Vérifie le token CSRF sur les requêtes sensibles
+ */
+app.use(verifyCsrfToken);
+
 app.use(async (req, res, next) => {
   try {
     const currentUser = req.session.user || null;
@@ -35,6 +55,7 @@ app.use(async (req, res, next) => {
     res.locals.currentUser = currentUser;
     res.locals.permissions = permissions;
     res.locals.notice = req.session.notice || null;
+
     delete req.session.notice;
     next();
   } catch (error) {
@@ -49,13 +70,40 @@ app.use('/', indexRoutes);
 
 app.use((error, req, res, next) => {
   console.error(error);
-  if (req.path.startsWith('/liste') || req.path.startsWith('/ajouter') || req.path.startsWith('/effacer') || req.path.startsWith('/modifier') || req.path.startsWith('/deplacer') || req.path.startsWith('/events')) {
-    res.status(500).json({ error: 'Erreur interne du serveur.' });
-    return;
+
+  if (res.headersSent) {
+    return next(error);
+  }
+
+  if (error.status === 403) {
+    if (
+      req.path.startsWith('/liste') ||
+      req.path.startsWith('/ajouter') ||
+      req.path.startsWith('/effacer') ||
+      req.path.startsWith('/modifier') ||
+      req.path.startsWith('/deplacer') ||
+      req.path.startsWith('/events')
+    ) {
+      return res.status(403).json({ error: 'Requête refusée (CSRF ou origine invalide).' });
+    }
+
+    req.session.notice = 'Requête refusée pour raison de sécurité.';
+    return res.redirect('/');
+  }
+
+  if (
+    req.path.startsWith('/liste') ||
+    req.path.startsWith('/ajouter') ||
+    req.path.startsWith('/effacer') ||
+    req.path.startsWith('/modifier') ||
+    req.path.startsWith('/deplacer') ||
+    req.path.startsWith('/events')
+  ) {
+    return res.status(500).json({ error: 'Erreur interne du serveur.' });
   }
 
   req.session.notice = 'Une erreur interne est survenue.';
-  res.redirect('/');
+  return res.redirect('/');
 });
 
 module.exports = app;

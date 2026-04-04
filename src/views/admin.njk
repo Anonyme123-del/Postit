@@ -1,14 +1,17 @@
 {% include "partials/header.njk" %}
 
-<main class="auth-page">
-  <section class="panel admin-panel">
-    <h1>Administration</h1>
-    <p>Gestion des utilisateurs, droits et tableaux.</p>
+<main class="auth-page admin-page">
+  <section class="panel admin-panel hero-panel">
+    <p class="eyebrow">Administration</p>
+    <h1>Panneau d’administration</h1>
+    <p>Gère les utilisateurs, leurs droits et les tableaux de travail.</p>
   </section>
 
   <section class="panel admin-panel">
     <h2>Ajouter un utilisateur</h2>
     <form action="/admin/users/create" method="post" class="admin-create-form">
+      <input type="hidden" name="_csrf" value="{{ csrfToken }}" />
+
       <label for="new-username">Nom d'utilisateur</label>
       <input id="new-username" name="username" type="text" required />
 
@@ -27,7 +30,7 @@
         <thead>
           <tr>
             <th>Utilisateur</th>
-            <th>Creation</th>
+            <th>Création</th>
             <th>Modification</th>
             <th>Suppression</th>
             <th>Admin</th>
@@ -38,9 +41,7 @@
           {% for user in users %}
             {% set formId = 'perm-' + user.id %}
             <tr>
-              <td>
-                <strong>{{ user.username }}</strong>
-              </td>
+              <td><strong>{{ user.username }}</strong></td>
               <td><input type="checkbox" form="{{ formId }}" name="canCreate" {% if user.permissions.canCreate %}checked{% endif %} /></td>
               <td><input type="checkbox" form="{{ formId }}" name="canUpdate" {% if user.permissions.canUpdate %}checked{% endif %} /></td>
               <td><input type="checkbox" form="{{ formId }}" name="canDelete" {% if user.permissions.canDelete %}checked{% endif %} /></td>
@@ -48,11 +49,14 @@
               <td>
                 <div class="admin-actions">
                   <form id="{{ formId }}" action="/admin/permissions" method="post">
+                    <input type="hidden" name="_csrf" value="{{ csrfToken }}" />
                     <input type="hidden" name="userId" value="{{ user.id }}" />
                     <button type="submit">Enregistrer</button>
                   </form>
+
                   {% if user.username != 'guest' and (not currentUser or currentUser.id != user.id) %}
                     <form action="/admin/users/delete" method="post" onsubmit="return confirm('Supprimer cet utilisateur ?');">
+                      <input type="hidden" name="_csrf" value="{{ csrfToken }}" />
                       <input type="hidden" name="userId" value="{{ user.id }}" />
                       <button type="submit" class="danger">Supprimer</button>
                     </form>
@@ -69,11 +73,13 @@
   <section class="panel admin-panel">
     <h2>Ajouter un tableau</h2>
     <form action="/admin/boards/create" method="post" class="admin-create-form">
+      <input type="hidden" name="_csrf" value="{{ csrfToken }}" />
+
       <label for="new-board-slug">Slug</label>
-      <input id="new-board-slug" name="slug" type="text" placeholder="ex: reseau" required />
+      <input id="new-board-slug" name="slug" type="text" placeholder="ex : reseau" required />
 
       <label for="new-board-title">Titre</label>
-      <input id="new-board-title" name="title" type="text" placeholder="ex: Tableau reseau" />
+      <input id="new-board-title" name="title" type="text" placeholder="ex : Tableau réseau" />
 
       <button type="submit">Ajouter le tableau</button>
     </form>
@@ -81,6 +87,7 @@
 
   <section class="panel admin-panel">
     <h2>Liste des tableaux</h2>
+
     <div class="admin-table-wrapper">
       <table class="admin-table">
         <thead>
@@ -100,11 +107,12 @@
               <td>
                 {% if board.slug != 'main' %}
                   <form action="/admin/boards/delete" method="post" onsubmit="return confirm('Supprimer ce tableau et ses post-its ?');">
+                    <input type="hidden" name="_csrf" value="{{ csrfToken }}" />
                     <input type="hidden" name="boardId" value="{{ board.id }}" />
                     <button type="submit" class="danger">Supprimer</button>
                   </form>
                 {% else %}
-                  <em>Protege</em>
+                  <span class="badge-protected">Protégé</span>
                 {% endif %}
               </td>
             </tr>

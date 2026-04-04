@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const state = {
     boardSlug: boardElement.dataset.boardSlug || 'main',
     currentUserId: Number(boardElement.dataset.currentUserId || 0),
+    csrfToken: boardElement.dataset.csrfToken || '',
     permissions: {
       canCreate: boardElement.dataset.canCreate === '1',
       canUpdate: boardElement.dataset.canUpdate === '1',
@@ -51,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderPostit(postit) {
     state.postitsById.set(postit.id, postit);
     let element = boardElement.querySelector(`[data-postit-id="${postit.id}"]`);
+
     if (!element) {
       element = document.createElement('article');
       element.className = 'postit';
@@ -78,6 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
       </footer>
       <span class="drag-hint">${draggable === '1' ? 'Glisser pour deplacer' : ''}</span>
     `;
+
     element.dataset.draggable = draggable;
     renderEmptyState();
   }
@@ -85,6 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function removePostit(postitId) {
     state.postitsById.delete(postitId);
     const element = boardElement.querySelector(`[data-postit-id="${postitId}"]`);
+
     if (element) {
       element.remove();
     }
@@ -96,12 +100,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'x-csrf-token': state.csrfToken
       },
       body: JSON.stringify(payload)
     });
 
     const data = await response.json().catch(() => ({}));
+
     if (!response.ok) {
       throw new Error(data.error || 'Erreur reseau');
     }
@@ -112,6 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadPostits() {
     const response = await fetch(`/liste/${encodeURIComponent(state.boardSlug)}`);
     const payload = await response.json();
+
     if (!response.ok) {
       throw new Error(payload.error || 'Impossible de charger les post-its.');
     }
@@ -151,15 +158,19 @@ document.addEventListener('DOMContentLoaded', () => {
       x: Math.max(0, Math.round(event.clientX - boardRect.left - 110)),
       y: Math.max(0, Math.round(event.clientY - boardRect.top - 60))
     };
+
     openModal('create', '');
   });
 
   let lastTapAt = 0;
+
   boardElement.addEventListener('touchend', (event) => {
     const now = Date.now();
+
     if (now - lastTapAt < 280) {
       const touch = event.changedTouches[0];
       const boardRect = boardElement.getBoundingClientRect();
+
       state.pendingCreatePosition = {
         x: Math.max(0, Math.round(touch.clientX - boardRect.left - 110)),
         y: Math.max(0, Math.round(touch.clientY - boardRect.top - 60))
@@ -209,17 +220,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   boardElement.addEventListener('click', async (event) => {
     const target = event.target;
+
     if (!(target instanceof HTMLElement)) {
       return;
     }
 
     const postitElement = target.closest('.postit');
+
     if (!postitElement) {
       return;
     }
 
     const postitId = Number(postitElement.dataset.postitId);
     const postit = state.postitsById.get(postitId);
+
     if (!postit) {
       return;
     }
@@ -235,6 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (error) {
         window.alert(error.message);
       }
+
       return;
     }
 
@@ -245,11 +260,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   boardElement.addEventListener('pointerdown', (event) => {
     const target = event.target;
+
     if (!(target instanceof HTMLElement)) {
       return;
     }
 
     const postitElement = target.closest('.postit');
+
     if (!postitElement || postitElement.dataset.draggable !== '1') {
       return;
     }
@@ -268,6 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
       offsetY: event.clientY - rect.top,
       boardRect
     };
+
     postitElement.setPointerCapture(event.pointerId);
   });
 
@@ -277,6 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const postitElement = boardElement.querySelector(`[data-postit-id="${state.dragState.id}"]`);
+
     if (!postitElement) {
       return;
     }
@@ -342,5 +361,6 @@ document.addEventListener('DOMContentLoaded', () => {
   loadPostits().catch((error) => {
     window.alert(error.message);
   });
+
   setupRealtime();
 });
