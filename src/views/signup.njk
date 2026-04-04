@@ -1,62 +1,19 @@
 {% include "partials/header.njk" %}
 
 <main class="auth-page">
-  <form class="panel auth-panel" action="/signup" method="post" novalidate>
-    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-
-    <h1>Créer un compte</h1>
-
-    {% if notice %}
-      <p class="notice">{{ notice }}</p>
-    {% endif %}
-
+  <form class="panel auth-panel" action="/signup" method="post">
+    <h1>Creer un compte</h1>
     <label for="username">Nom d'utilisateur</label>
-    <input
-      id="username"
-      name="username"
-      type="text"
-      value="{{ old.username or '' }}"
-      minlength="3"
-      maxlength="30"
-      pattern="[a-zA-Z0-9_.-]+"
-      autocomplete="username"
-      required
-    />
+    <input id="username" name="username" type="text" required />
 
     <label for="password">Mot de passe</label>
-    <input
-      id="password"
-      name="password"
-      type="password"
-      minlength="12"
-      maxlength="128"
-      autocomplete="new-password"
-      required
-    />
+    <input id="password" name="password" type="password" required />
 
     <label for="passwordConfirm">Confirmation</label>
-    <input
-      id="passwordConfirm"
-      name="passwordConfirm"
-      type="password"
-      minlength="12"
-      maxlength="128"
-      autocomplete="new-password"
-      required
-    />
+    <input id="passwordConfirm" name="passwordConfirm" type="password" required />
 
     <button type="submit">S'inscrire</button>
-
-    <div class="auth-help">
-      <p><strong>Le mot de passe doit contenir :</strong></p>
-      <ul>
-        <li>au moins 12 caractères</li>
-        <li>une lettre minuscule</li>
-        <li>une lettre majuscule</li>
-        <li>un chiffre</li>
-        <li>un caractère spécial</li>
-      </ul>
-    </div>
+    <p>Compte admin de dev cree automatiquement a l'init DB: <strong>admin / admin123</strong></p>
   </form>
 </main>
 

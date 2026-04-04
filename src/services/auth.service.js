@@ -1,8 +1,6 @@
 const bcrypt = require('bcrypt');
 const { all, get, run } = require('../db/sqlite');
 
-const BCRYPT_ROUNDS = 12;
-
 function normalizePermissionRow(row) {
   if (!row) {
     return {
@@ -21,119 +19,26 @@ function normalizePermissionRow(row) {
   };
 }
 
-function getGuestPermissions() {
-  return {
-    canCreate: false,
-    canUpdate: false,
-    canDelete: false,
-    isAdmin: false
-  };
-}
-
-function normalizeUsername(username) {
-  return String(username || '').trim().toLowerCase();
-}
-
-function validateUsername(username) {
-  const cleanUsername = normalizeUsername(username);
-
-  if (!cleanUsername) {
-    throw new Error("Le nom d'utilisateur est requis.");
-  }
-
-  if (cleanUsername.length < 3) {
-    throw new Error("Le nom d'utilisateur doit contenir au moins 3 caractères.");
-  }
-
-  if (cleanUsername.length > 30) {
-    throw new Error("Le nom d'utilisateur est trop long.");
-  }
-
-  if (!/^[a-z0-9_.-]+$/.test(cleanUsername)) {
-    throw new Error("Le nom d'utilisateur contient des caractères non autorisés.");
-  }
-
-  if (['guest', 'admin', 'root', 'system'].includes(cleanUsername)) {
-    throw new Error("Ce nom d'utilisateur est réservé.");
-  }
-
-  return cleanUsername;
-}
-
-function validatePassword(password, username = '') {
-  const cleanPassword = String(password || '');
-  const cleanUsername = normalizeUsername(username);
-
-  if (!cleanPassword) {
-    throw new Error('Le mot de passe est requis.');
-  }
-
-  if (cleanPassword.length < 12) {
-    throw new Error('Le mot de passe doit contenir au moins 12 caractères.');
-  }
-
-  if (cleanPassword.length > 128) {
-    throw new Error('Le mot de passe est trop long.');
-  }
-
-  if (!/[a-z]/.test(cleanPassword)) {
-    throw new Error('Le mot de passe doit contenir au moins une lettre minuscule.');
-  }
-
-  if (!/[A-Z]/.test(cleanPassword)) {
-    throw new Error('Le mot de passe doit contenir au moins une lettre majuscule.');
-  }
-
-  if (!/[0-9]/.test(cleanPassword)) {
-    throw new Error('Le mot de passe doit contenir au moins un chiffre.');
-  }
-
-  if (!/[!@#$%^&*(),.?":{}|<>_\-+=/\\[\];'`~]/.test(cleanPassword)) {
-    throw new Error('Le mot de passe doit contenir au moins un caractère spécial.');
-  }
-
-  if (/\s/.test(cleanPassword)) {
-    throw new Error('Le mot de passe ne doit pas contenir d’espace.');
-  }
-
-  if (cleanUsername && cleanPassword.toLowerCase().includes(cleanUsername)) {
-    throw new Error("Le mot de passe ne doit pas contenir le nom d'utilisateur.");
-  }
-
-  const weakPatterns = [
-    'password',
-    'azerty',
-    'qwerty',
-    '123456',
-    '123456789',
-    'motdepasse',
-    'admin',
-    'welcome'
-  ];
-
-  const lowerPassword = cleanPassword.toLowerCase();
-  if (weakPatterns.some((pattern) => lowerPassword.includes(pattern))) {
-    throw new Error('Le mot de passe est trop faible. Choisis-en un plus robuste.');
-  }
-
-  return cleanPassword;
-}
-
 async function getUserByUsername(username) {
-  const cleanUsername = normalizeUsername(username);
-
   return get(
     `SELECT u.id, u.username, u.password_hash, up.can_create, up.can_update, up.can_delete, up.is_admin
      FROM users u
      LEFT JOIN user_permissions up ON up.user_id = u.id
-     WHERE LOWER(u.username) = ?`,
-    [cleanUsername]
+     WHERE u.username = ?`,
+    [username]
   );
 }
 
 async function getPermissionsForUserId(userId) {
   if (!userId) {
-    return getGuestPermissions();
+    const guestRow = await get(
+      `SELECT up.can_create, up.can_update, up.can_delete, up.is_admin
+       FROM users u
+       LEFT JOIN user_permissions up ON up.user_id = u.id
+       WHERE u.username = 'guest'`
+    );
+
+    return normalizePermissionRow(guestRow);
   }
 
   const row = await get(
@@ -147,25 +52,28 @@ async function getPermissionsForUserId(userId) {
 }
 
 async function createUser(username, password) {
-  const cleanUsername = validateUsername(username);
-  const cleanPassword = validatePassword(password, cleanUsername);
+  const cleanUsername = String(username || '').trim();
+  if (!cleanUsername || !password) {
+    throw new Error('Nom d utilisateur et mot de passe requis.');
+  }
+
+  if (cleanUsername.toLowerCase() === 'guest') {
+    throw new Error('Le nom guest est reserve.');
+  }
 
   const existing = await getUserByUsername(cleanUsername);
   if (existing) {
-    throw new Error("Nom d'utilisateur déjà pris.");
+    throw new Error('Nom d utilisateur deja pris.');
   }
 
-  const passwordHash = await bcrypt.hash(cleanPassword, BCRYPT_ROUNDS);
-
+  const passwordHash = await bcrypt.hash(password, 10);
   const inserted = await run(
-    `INSERT INTO users (username, password_hash)
-     VALUES (?, ?)`,
+    'INSERT INTO users (username, password_hash) VALUES (?, ?)',
     [cleanUsername, passwordHash]
   );
 
   await run(
-    `INSERT INTO user_permissions (user_id, can_create, can_update, can_delete, is_admin)
-     VALUES (?, 1, 1, 1, 0)`,
+    'INSERT INTO user_permissions (user_id, can_create, can_update, can_delete, is_admin) VALUES (?, 1, 1, 1, 0)',
     [inserted.lastID]
   );
 
@@ -182,19 +90,14 @@ async function createUser(username, password) {
 }
 
 async function authenticate(username, password) {
-  const cleanUsername = normalizeUsername(username);
-  const cleanPassword = String(password || '');
-
-  if (!cleanUsername || !cleanPassword) {
-    return null;
-  }
-
+  const cleanUsername = String(username || '').trim();
   const user = await getUserByUsername(cleanUsername);
+
   if (!user) {
     return null;
   }
 
-  const isValid = await bcrypt.compare(cleanPassword, user.password_hash);
+  const isValid = await bcrypt.compare(String(password || ''), user.password_hash);
   if (!isValid) {
     return null;
   }
