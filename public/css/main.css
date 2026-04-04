@@ -1,0 +1,283 @@
+:root {
+  --bg: #f5f1e8;
+  --surface: #fffaf0;
+  --ink: #23201a;
+  --accent: #c76b2a;
+  --sticky: #f7df74;
+  --line: #d8cdb9;
+  --danger: #a6382f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top left, #fff7cf 0, transparent 30%),
+    linear-gradient(135deg, #efe2bf, var(--bg));
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid rgba(35, 32, 26, 0.08);
+  background: rgba(255, 250, 240, 0.8);
+  backdrop-filter: blur(10px);
+}
+
+.brand {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.topnav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.topnav form {
+  margin: 0;
+}
+
+.topnav button,
+.panel button {
+  border: 0;
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  background: var(--accent);
+  color: white;
+  cursor: pointer;
+}
+
+.notice {
+  margin: 1rem 1.5rem 0;
+  padding: 0.85rem 1rem;
+  border-left: 4px solid var(--accent);
+  background: rgba(255, 250, 240, 0.85);
+}
+
+.page {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  min-height: calc(100vh - 76px);
+}
+
+.sidebar,
+.auth-page {
+  padding: 1.5rem;
+}
+
+.permission-list {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 250, 240, 0.9);
+}
+
+.auth-panel {
+  max-width: 420px;
+  margin: 2rem auto;
+}
+
+.panel input {
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+}
+
+.board {
+  position: relative;
+  overflow: hidden;
+  min-height: calc(100vh - 76px);
+  padding: 1.5rem;
+}
+
+.board-empty {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  border: 2px dashed rgba(35, 32, 26, 0.15);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.45);
+  text-align: center;
+}
+
+.postit {
+  position: absolute;
+  width: 220px;
+  min-height: 180px;
+  padding: 1rem;
+  border: 1px solid rgba(35, 32, 26, 0.12);
+  border-radius: 8px;
+  background: var(--sticky);
+  box-shadow: 0 16px 30px rgba(35, 32, 26, 0.14);
+  touch-action: none;
+  user-select: none;
+}
+
+.postit-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 0.7rem;
+}
+
+.postit-head small {
+  opacity: 0.75;
+}
+
+.postit-text {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin: 0;
+}
+
+.postit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+
+.postit-actions button {
+  border: 0;
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  background: rgba(35, 32, 26, 0.15);
+}
+
+.postit-actions .danger {
+  background: rgba(166, 56, 47, 0.8);
+  color: #fff;
+}
+
+.drag-hint {
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  font-size: 0.75rem;
+  opacity: 0.65;
+}
+
+.modal {
+  border: 0;
+  border-radius: 14px;
+  padding: 0;
+  width: min(92vw, 460px);
+}
+
+.modal::backdrop {
+  background: rgba(20, 18, 13, 0.35);
+}
+
+.modal-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.modal-card textarea {
+  width: 100%;
+  min-height: 140px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.7rem;
+  font: inherit;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  margin: 0;
+  padding: 0;
+}
+
+.modal-actions .secondary {
+  background: #ddd6c8;
+  color: #23201a;
+}
+
+.admin-panel {
+  max-width: 1000px;
+  margin: 1rem auto;
+}
+
+.admin-table-wrapper {
+  overflow-x: auto;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 0.6rem;
+  text-align: center;
+}
+
+.admin-table td:first-child,
+.admin-table th:first-child {
+  text-align: left;
+}
+
+.admin-create-form {
+  display: grid;
+  gap: 0.7rem;
+  max-width: 460px;
+}
+
+.admin-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+button.danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+@media (max-width: 900px) {
+  .page {
+    grid-template-columns: 1fr;
+  }
+
+  .board {
+    min-height: 70vh;
+  }
+}
