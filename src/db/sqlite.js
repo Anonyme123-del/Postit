@@ -2,7 +2,7 @@ const db = require('../config/db');
 
 function run(sql, params = []) {
   return new Promise((resolve, reject) => {
-    db.run(sql, params, function (error) {
+    db.run(sql, params, function onRun(error) {
       if (error) {
         reject(error);
         return;

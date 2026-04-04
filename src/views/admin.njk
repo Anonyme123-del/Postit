@@ -1,0 +1,118 @@
+{% include "partials/header.njk" %}
+
+<main class="auth-page">
+  <section class="panel admin-panel">
+    <h1>Administration</h1>
+    <p>Gestion des utilisateurs, droits et tableaux.</p>
+  </section>
+
+  <section class="panel admin-panel">
+    <h2>Ajouter un utilisateur</h2>
+    <form action="/admin/users/create" method="post" class="admin-create-form">
+      <label for="new-username">Nom d'utilisateur</label>
+      <input id="new-username" name="username" type="text" required />
+
+      <label for="new-password">Mot de passe</label>
+      <input id="new-password" name="password" type="password" required />
+
+      <button type="submit">Ajouter l'utilisateur</button>
+    </form>
+  </section>
+
+  <section class="panel admin-panel">
+    <h2>Liste des utilisateurs et droits</h2>
+
+    <div class="admin-table-wrapper">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Utilisateur</th>
+            <th>Creation</th>
+            <th>Modification</th>
+            <th>Suppression</th>
+            <th>Admin</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user in users %}
+            {% set formId = 'perm-' + user.id %}
+            <tr>
+              <td>
+                <strong>{{ user.username }}</strong>
+              </td>
+              <td><input type="checkbox" form="{{ formId }}" name="canCreate" {% if user.permissions.canCreate %}checked{% endif %} /></td>
+              <td><input type="checkbox" form="{{ formId }}" name="canUpdate" {% if user.permissions.canUpdate %}checked{% endif %} /></td>
+              <td><input type="checkbox" form="{{ formId }}" name="canDelete" {% if user.permissions.canDelete %}checked{% endif %} /></td>
+              <td><input type="checkbox" form="{{ formId }}" name="isAdmin" {% if user.permissions.isAdmin %}checked{% endif %} /></td>
+              <td>
+                <div class="admin-actions">
+                  <form id="{{ formId }}" action="/admin/permissions" method="post">
+                    <input type="hidden" name="userId" value="{{ user.id }}" />
+                    <button type="submit">Enregistrer</button>
+                  </form>
+                  {% if user.username != 'guest' and (not currentUser or currentUser.id != user.id) %}
+                    <form action="/admin/users/delete" method="post" onsubmit="return confirm('Supprimer cet utilisateur ?');">
+                      <input type="hidden" name="userId" value="{{ user.id }}" />
+                      <button type="submit" class="danger">Supprimer</button>
+                    </form>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel admin-panel">
+    <h2>Ajouter un tableau</h2>
+    <form action="/admin/boards/create" method="post" class="admin-create-form">
+      <label for="new-board-slug">Slug</label>
+      <input id="new-board-slug" name="slug" type="text" placeholder="ex: reseau" required />
+
+      <label for="new-board-title">Titre</label>
+      <input id="new-board-title" name="title" type="text" placeholder="ex: Tableau reseau" />
+
+      <button type="submit">Ajouter le tableau</button>
+    </form>
+  </section>
+
+  <section class="panel admin-panel">
+    <h2>Liste des tableaux</h2>
+    <div class="admin-table-wrapper">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Slug</th>
+            <th>Titre</th>
+            <th>Post-its</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for board in boards %}
+            <tr>
+              <td><a href="/{{ board.slug }}">{{ board.slug }}</a></td>
+              <td>{{ board.title }}</td>
+              <td>{{ board.postit_count }}</td>
+              <td>
+                {% if board.slug != 'main' %}
+                  <form action="/admin/boards/delete" method="post" onsubmit="return confirm('Supprimer ce tableau et ses post-its ?');">
+                    <input type="hidden" name="boardId" value="{{ board.id }}" />
+                    <button type="submit" class="danger">Supprimer</button>
+                  </form>
+                {% else %}
+                  <em>Protege</em>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+{% include "partials/footer.njk" %}

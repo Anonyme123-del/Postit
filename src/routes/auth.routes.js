@@ -1,7 +1,6 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const authController = require('../controllers/authController');
-const { redirectIfAuthenticated, requireAuth } = require('../middleware/authMiddleware');
+const authController = require('../controllers/auth.controller');
 
 const router = express.Router();
 
@@ -13,12 +12,12 @@ const authLimiter = rateLimit({
   message: 'Trop de tentatives. Réessaie plus tard.'
 });
 
-router.get('/signup', redirectIfAuthenticated, authController.showSignupPage);
-router.post('/signup', authLimiter, redirectIfAuthenticated, authController.signup);
+router.get('/signup', authController.signupForm);
+router.post('/signup', authLimiter, authController.signup);
 
-router.get('/login', redirectIfAuthenticated, authController.showLoginPage);
-router.post('/login', authLimiter, redirectIfAuthenticated, authController.login);
+router.get('/login', authController.loginForm);
+router.post('/login', authLimiter, authController.login);
 
-router.post('/logout', requireAuth, authController.logout);
+router.post('/logout', authController.logout);
 
 module.exports = router;

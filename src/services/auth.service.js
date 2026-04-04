@@ -1,28 +1,51 @@
 const bcrypt = require('bcrypt');
-const env = require('../config/env');
-const userModel = require('../models/userModel');
+const { all, get, run } = require('../db/sqlite');
 
-function normalizePermissions(row) {
+const BCRYPT_ROUNDS = 12;
+
+function normalizePermissionRow(row) {
+  if (!row) {
+    return {
+      canCreate: false,
+      canUpdate: false,
+      canDelete: false,
+      isAdmin: false
+    };
+  }
+
   return {
-    canCreate: Boolean(row?.can_create),
-    canUpdate: Boolean(row?.can_update),
-    canDelete: Boolean(row?.can_delete),
-    isAdmin: Boolean(row?.is_admin)
+    canCreate: Boolean(row.can_create),
+    canUpdate: Boolean(row.can_update),
+    canDelete: Boolean(row.can_delete),
+    isAdmin: Boolean(row.is_admin)
   };
 }
 
+function getGuestPermissions() {
+  return {
+    canCreate: false,
+    canUpdate: false,
+    canDelete: false,
+    isAdmin: false
+  };
+}
+
+function normalizeUsername(username) {
+  return String(username || '').trim().toLowerCase();
+}
+
 function validateUsername(username) {
-  const cleanUsername = String(username || '').trim().toLowerCase();
+  const cleanUsername = normalizeUsername(username);
 
   if (!cleanUsername) {
-    throw new Error("Nom d'utilisateur requis.");
+    throw new Error("Le nom d'utilisateur est requis.");
   }
 
   if (cleanUsername.length < 3) {
     throw new Error("Le nom d'utilisateur doit contenir au moins 3 caractères.");
   }
 
-  if (cleanUsername.length > 50) {
+  if (cleanUsername.length > 30) {
     throw new Error("Le nom d'utilisateur est trop long.");
   }
 
@@ -37,18 +60,19 @@ function validateUsername(username) {
   return cleanUsername;
 }
 
-function validatePassword(password) {
+function validatePassword(password, username = '') {
   const cleanPassword = String(password || '');
+  const cleanUsername = normalizeUsername(username);
 
   if (!cleanPassword) {
-    throw new Error('Mot de passe requis.');
+    throw new Error('Le mot de passe est requis.');
   }
 
   if (cleanPassword.length < 12) {
     throw new Error('Le mot de passe doit contenir au moins 12 caractères.');
   }
 
-  if (cleanPassword.length > 100) {
+  if (cleanPassword.length > 128) {
     throw new Error('Le mot de passe est trop long.');
   }
 
@@ -64,29 +88,89 @@ function validatePassword(password) {
     throw new Error('Le mot de passe doit contenir au moins un chiffre.');
   }
 
-  if (!/[!@#$%^&*(),.?":{}|<>_\-+=/\\[\];\'`~]/.test(cleanPassword)) {
+  if (!/[!@#$%^&*(),.?":{}|<>_\-+=/\\[\];'`~]/.test(cleanPassword)) {
     throw new Error('Le mot de passe doit contenir au moins un caractère spécial.');
+  }
+
+  if (/\s/.test(cleanPassword)) {
+    throw new Error('Le mot de passe ne doit pas contenir d’espace.');
+  }
+
+  if (cleanUsername && cleanPassword.toLowerCase().includes(cleanUsername)) {
+    throw new Error("Le mot de passe ne doit pas contenir le nom d'utilisateur.");
+  }
+
+  const weakPatterns = [
+    'password',
+    'azerty',
+    'qwerty',
+    '123456',
+    '123456789',
+    'motdepasse',
+    'admin',
+    'welcome'
+  ];
+
+  const lowerPassword = cleanPassword.toLowerCase();
+  if (weakPatterns.some((pattern) => lowerPassword.includes(pattern))) {
+    throw new Error('Le mot de passe est trop faible. Choisis-en un plus robuste.');
   }
 
   return cleanPassword;
 }
 
-async function registerUser(username, password) {
-  const cleanUsername = validateUsername(username);
-  const cleanPassword = validatePassword(password);
+async function getUserByUsername(username) {
+  const cleanUsername = normalizeUsername(username);
 
-  const existingUser = await userModel.findByUsername(cleanUsername);
-  if (existingUser) {
+  return get(
+    `SELECT u.id, u.username, u.password_hash, up.can_create, up.can_update, up.can_delete, up.is_admin
+     FROM users u
+     LEFT JOIN user_permissions up ON up.user_id = u.id
+     WHERE LOWER(u.username) = ?`,
+    [cleanUsername]
+  );
+}
+
+async function getPermissionsForUserId(userId) {
+  if (!userId) {
+    return getGuestPermissions();
+  }
+
+  const row = await get(
+    `SELECT can_create, can_update, can_delete, is_admin
+     FROM user_permissions
+     WHERE user_id = ?`,
+    [userId]
+  );
+
+  return normalizePermissionRow(row);
+}
+
+async function createUser(username, password) {
+  const cleanUsername = validateUsername(username);
+  const cleanPassword = validatePassword(password, cleanUsername);
+
+  const existing = await getUserByUsername(cleanUsername);
+  if (existing) {
     throw new Error("Nom d'utilisateur déjà pris.");
   }
 
-  const passwordHash = await bcrypt.hash(cleanPassword, env.bcryptRounds);
-  const insertedUser = await userModel.createUser(cleanUsername, passwordHash);
+  const passwordHash = await bcrypt.hash(cleanPassword, BCRYPT_ROUNDS);
 
-  await userModel.createDefaultPermissions(insertedUser.lastID);
+  const inserted = await run(
+    `INSERT INTO users (username, password_hash)
+     VALUES (?, ?)`,
+    [cleanUsername, passwordHash]
+  );
+
+  await run(
+    `INSERT INTO user_permissions (user_id, can_create, can_update, can_delete, is_admin)
+     VALUES (?, 1, 1, 1, 0)`,
+    [inserted.lastID]
+  );
 
   return {
-    id: insertedUser.lastID,
+    id: inserted.lastID,
     username: cleanUsername,
     permissions: {
       canCreate: true,
@@ -97,38 +181,96 @@ async function registerUser(username, password) {
   };
 }
 
-async function loginUser(username, password) {
-  const cleanUsername = String(username || '').trim().toLowerCase();
+async function authenticate(username, password) {
+  const cleanUsername = normalizeUsername(username);
   const cleanPassword = String(password || '');
 
-  console.log('LOGIN username reçu =', cleanUsername);
-
   if (!cleanUsername || !cleanPassword) {
-    throw new Error('Identifiants invalides.');
+    return null;
   }
 
-  const user = await userModel.findUserWithPermissionsByUsername(cleanUsername);
-  console.log('USER trouvé =', user);
-
+  const user = await getUserByUsername(cleanUsername);
   if (!user) {
-    throw new Error('Identifiants invalides.');
+    return null;
   }
 
-  const passwordMatches = await bcrypt.compare(cleanPassword, user.password_hash);
-  console.log('PASSWORD MATCHES =', passwordMatches);
-
-  if (!passwordMatches) {
-    throw new Error('Identifiants invalides.');
+  const isValid = await bcrypt.compare(cleanPassword, user.password_hash);
+  if (!isValid) {
+    return null;
   }
 
   return {
     id: user.id,
     username: user.username,
-    permissions: normalizePermissions(user)
+    permissions: normalizePermissionRow(user)
   };
 }
 
+async function getSessionUser(userId) {
+  if (!userId) {
+    return null;
+  }
+
+  const user = await get(
+    `SELECT u.id, u.username, up.can_create, up.can_update, up.can_delete, up.is_admin
+     FROM users u
+     LEFT JOIN user_permissions up ON up.user_id = u.id
+     WHERE u.id = ?`,
+    [userId]
+  );
+
+  if (!user) {
+    return null;
+  }
+
+  return {
+    id: user.id,
+    username: user.username,
+    permissions: normalizePermissionRow(user)
+  };
+}
+
+async function listUsersWithPermissions() {
+  const rows = await all(
+    `SELECT u.id, u.username, u.created_at, up.can_create, up.can_update, up.can_delete, up.is_admin
+     FROM users u
+     LEFT JOIN user_permissions up ON up.user_id = u.id
+     ORDER BY u.username ASC`
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    username: row.username,
+    createdAt: row.created_at,
+    permissions: normalizePermissionRow(row)
+  }));
+}
+
+async function updatePermissions(userId, permissions) {
+  await run(
+    `UPDATE user_permissions
+     SET can_create = ?, can_update = ?, can_delete = ?, is_admin = ?
+     WHERE user_id = ?`,
+    [
+      permissions.canCreate ? 1 : 0,
+      permissions.canUpdate ? 1 : 0,
+      permissions.canDelete ? 1 : 0,
+      permissions.isAdmin ? 1 : 0,
+      userId
+    ]
+  );
+}
+
+async function deleteUserById(userId) {
+  return run('DELETE FROM users WHERE id = ?', [userId]);
+}
+
 module.exports = {
-  registerUser,
-  loginUser
+  authenticate,
+  createUser,
+  deleteUserById,
+  getPermissionsForUserId,
+  getSessionUser,
+  listUsersWithPermissions,
+  updatePermissions
 };

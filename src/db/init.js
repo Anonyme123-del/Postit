@@ -55,7 +55,7 @@ db.exec(sql, (error) => {
   ensureSpecialUsers()
     .then(() => {
       console.log('Database initialized successfully.');
-      console.log('Admin account created. Change the default password after first login.');
+      console.log(`Admin account: admin / ${env.adminDefaultPassword}`);
       db.close();
     })
     .catch((seedError) => {

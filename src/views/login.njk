@@ -1,43 +1,76 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8" />
-  <title>Connexion</title>
-</head>
-<body>
-  <h1>Connexion</h1>
+{% include "partials/header.njk" %}
 
-  {% if error %}
-    <p style="color:red;">{{ error }}</p>
-  {% endif %}
-
-  <form method="POST" action="/login" novalidate>
-    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-
-    <div>
-      <label for="username">Nom d'utilisateur</label>
-      <input
-        id="username"
-        type="text"
-        name="username"
-        value="{{ old.username | default('') }}"
-        required
-        minlength="3"
-        maxlength="50"
-      >
+<main class="login-page">
+  <section class="login-card">
+    <div class="login-brand">
+      <p class="login-kicker">Secure Post-it</p>
+      <h1>Bon retour</h1>
+      <p class="login-subtitle">
+        Connecte-toi pour retrouver tes tableaux et gérer tes post-its.
+      </p>
     </div>
 
-    <div>
-      <label for="password">Mot de passe</label>
-      <input
-        id="password"
-        type="password"
-        name="password"
-        required
-      >
-    </div>
+    {% if notice %}
+      <div class="login-alert">
+        {{ notice }}
+      </div>
+    {% endif %}
 
-    <button type="submit">Se connecter</button>
-  </form>
-</body>
-</html>
+    <form class="login-form" action="/login" method="post" novalidate>
+      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+      <div class="field">
+        <label for="username">Nom d'utilisateur</label>
+        <input
+          id="username"
+          name="username"
+          type="text"
+          value="{{ old.username or '' }}"
+          autocomplete="username"
+          placeholder="Entre ton nom d'utilisateur"
+          required
+        >
+      </div>
+
+      <div class="field">
+        <label for="password">Mot de passe</label>
+        <div class="password-wrap">
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            placeholder="Entre ton mot de passe"
+            required
+          >
+        </div>
+      </div>
+
+      <button type="submit" class="login-submit">
+        Se connecter
+      </button>
+    </form>
+
+    <div class="login-footer">
+      <p>
+        Pas encore de compte ?
+        <a href="/signup">Créer un compte</a>
+      </p>
+    </div>
+  </section>
+</main>
+
+<script>
+  const togglePassword = document.getElementById('toggle-password');
+  const passwordInput = document.getElementById('password');
+
+  if (togglePassword && passwordInput) {
+    togglePassword.addEventListener('click', () => {
+      const hidden = passwordInput.type === 'password';
+      passwordInput.type = hidden ? 'text' : 'password';
+      togglePassword.textContent = hidden ? 'Masquer' : 'Afficher';
+    });
+  }
+</script>
+
+{% include "partials/footer.njk" %}
