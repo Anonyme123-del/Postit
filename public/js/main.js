@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const modalContent = document.querySelector('#postit-content');
   const modalCancel = document.querySelector('#postit-cancel');
 
-  if (!boardElement || !modal || !modalForm) {
+  if (!boardElement || !modal || !modalForm || !modalTitle || !modalContent || !modalCancel) {
     return;
   }
 
@@ -40,6 +40,29 @@ document.addEventListener('DOMContentLoaded', () => {
       .replaceAll("'", '&#39;');
   }
 
+  function getPostitSize() {
+    const isMobile = window.innerWidth <= 640;
+
+    return {
+      width: isMobile ? 200 : 230,
+      height: isMobile ? 170 : 190
+    };
+  }
+
+  function clampPosition(x, y) {
+    const boardRect = boardElement.getBoundingClientRect();
+    const { width: postitWidth, height: postitHeight } = getPostitSize();
+    const margin = 12;
+
+    const maxX = Math.max(margin, Math.floor(boardRect.width - postitWidth - margin));
+    const maxY = Math.max(margin, Math.floor(boardRect.height - postitHeight - margin));
+
+    return {
+      x: Math.min(Math.max(margin, Math.round(x)), maxX),
+      y: Math.min(Math.max(margin, Math.round(y)), maxY)
+    };
+  }
+
   function renderEmptyState() {
     const empty = boardElement.querySelector('.board-empty');
     if (!empty) {
@@ -51,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderPostit(postit) {
     state.postitsById.set(postit.id, postit);
+
     let element = boardElement.querySelector(`[data-postit-id="${postit.id}"]`);
 
     if (!element) {
@@ -60,8 +84,10 @@ document.addEventListener('DOMContentLoaded', () => {
       boardElement.appendChild(element);
     }
 
-    element.style.left = `${postit.x}px`;
-    element.style.top = `${postit.y}px`;
+    const clamped = clampPosition(postit.x, postit.y);
+
+    element.style.left = `${clamped.x}px`;
+    element.style.top = `${clamped.y}px`;
     element.style.zIndex = String(postit.zIndex);
 
     const editable = canManage(postit) && state.permissions.canUpdate;
@@ -87,8 +113,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function removePostit(postitId) {
     state.postitsById.delete(postitId);
-    const element = boardElement.querySelector(`[data-postit-id="${postitId}"]`);
 
+    const element = boardElement.querySelector(`[data-postit-id="${postitId}"]`);
     if (element) {
       element.remove();
     }
@@ -123,6 +149,12 @@ document.addEventListener('DOMContentLoaded', () => {
       throw new Error(payload.error || 'Impossible de charger les post-its.');
     }
 
+    state.postitsById.clear();
+
+    boardElement.querySelectorAll('.postit').forEach((element) => {
+      element.remove();
+    });
+
     payload.postits.forEach((postit) => renderPostit(postit));
     renderEmptyState();
   }
@@ -132,12 +164,19 @@ document.addEventListener('DOMContentLoaded', () => {
     state.targetId = targetId;
     modalTitle.textContent = mode === 'create' ? 'Nouveau post-it' : 'Modifier le post-it';
     modalContent.value = value || '';
-    modal.showModal();
+
+    if (typeof modal.showModal === 'function') {
+      modal.showModal();
+    }
+
     modalContent.focus();
   }
 
   function closeModal() {
-    modal.close();
+    if (typeof modal.close === 'function') {
+      modal.close();
+    }
+
     state.targetId = null;
     state.pendingCreatePosition = null;
   }
@@ -154,11 +193,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const boardRect = boardElement.getBoundingClientRect();
-    state.pendingCreatePosition = {
-      x: Math.max(0, Math.round(event.clientX - boardRect.left - 110)),
-      y: Math.max(0, Math.round(event.clientY - boardRect.top - 60))
-    };
+    const rawX = event.clientX - boardRect.left - 110;
+    const rawY = event.clientY - boardRect.top - 60;
 
+    state.pendingCreatePosition = clampPosition(rawX, rawY);
     openModal('create', '');
   });
 
@@ -170,13 +208,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (now - lastTapAt < 280) {
       const touch = event.changedTouches[0];
       const boardRect = boardElement.getBoundingClientRect();
-
-      state.pendingCreatePosition = {
-        x: Math.max(0, Math.round(touch.clientX - boardRect.left - 110)),
-        y: Math.max(0, Math.round(touch.clientY - boardRect.top - 60))
-      };
+      const rawX = touch.clientX - boardRect.left - 110;
+      const rawY = touch.clientY - boardRect.top - 60;
 
       if (state.currentUserId && state.permissions.canCreate) {
+        state.pendingCreatePosition = clampPosition(rawX, rawY);
         openModal('create', '');
       }
     }
@@ -186,6 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   modalForm.addEventListener('submit', async (event) => {
     event.preventDefault();
+
     const content = modalContent.value.trim();
 
     if (!content) {
@@ -198,15 +235,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const payload = await requestJson('/ajouter', {
           boardSlug: state.boardSlug,
           content,
-          x: state.pendingCreatePosition?.x || 10,
-          y: state.pendingCreatePosition?.y || 10
+          x: state.pendingCreatePosition?.x || 12,
+          y: state.pendingCreatePosition?.y || 12
         });
+
         renderPostit(payload.postit);
       } else if (state.mode === 'edit' && state.targetId) {
         const payload = await requestJson('/modifier', {
           id: state.targetId,
           content
         });
+
         renderPostit(payload.postit);
       }
 
@@ -226,7 +265,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const postitElement = target.closest('.postit');
-
     if (!postitElement) {
       return;
     }
@@ -286,7 +324,9 @@ document.addEventListener('DOMContentLoaded', () => {
       boardRect
     };
 
-    postitElement.setPointerCapture(event.pointerId);
+    if (typeof postitElement.setPointerCapture === 'function') {
+      postitElement.setPointerCapture(event.pointerId);
+    }
   });
 
   boardElement.addEventListener('pointermove', (event) => {
@@ -295,16 +335,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const postitElement = boardElement.querySelector(`[data-postit-id="${state.dragState.id}"]`);
-
     if (!postitElement) {
       return;
     }
 
-    const left = Math.max(0, Math.round(event.clientX - state.dragState.boardRect.left - state.dragState.offsetX));
-    const top = Math.max(0, Math.round(event.clientY - state.dragState.boardRect.top - state.dragState.offsetY));
+    const rawLeft = event.clientX - state.dragState.boardRect.left - state.dragState.offsetX;
+    const rawTop = event.clientY - state.dragState.boardRect.top - state.dragState.offsetY;
 
-    postitElement.style.left = `${left}px`;
-    postitElement.style.top = `${top}px`;
+    const clamped = clampPosition(rawLeft, rawTop);
+
+    postitElement.style.left = `${clamped.x}px`;
+    postitElement.style.top = `${clamped.y}px`;
   });
 
   boardElement.addEventListener('pointerup', async (event) => {
@@ -320,8 +361,12 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const x = Number.parseInt(postitElement.style.left, 10) || 0;
-    const y = Number.parseInt(postitElement.style.top, 10) || 0;
+    const rawX = Number.parseInt(postitElement.style.left, 10) || 0;
+    const rawY = Number.parseInt(postitElement.style.top, 10) || 0;
+    const { x, y } = clampPosition(rawX, rawY);
+
+    postitElement.style.left = `${x}px`;
+    postitElement.style.top = `${y}px`;
 
     try {
       const payload = await requestJson('/deplacer', { id: postitId, x, y });
@@ -331,7 +376,9 @@ document.addEventListener('DOMContentLoaded', () => {
       await loadPostits();
     }
 
-    postitElement.releasePointerCapture(event.pointerId);
+    if (typeof postitElement.releasePointerCapture === 'function') {
+      postitElement.releasePointerCapture(event.pointerId);
+    }
   });
 
   function setupRealtime() {
