@@ -71,39 +71,32 @@ app.use('/', indexRoutes);
 app.use((error, req, res, next) => {
   console.error(error);
 
-  if (res.headersSent) {
-    return next(error);
-  }
-
-  if (error.status === 403) {
-    if (
-      req.path.startsWith('/liste') ||
-      req.path.startsWith('/ajouter') ||
-      req.path.startsWith('/effacer') ||
-      req.path.startsWith('/modifier') ||
-      req.path.startsWith('/deplacer') ||
-      req.path.startsWith('/events')
-    ) {
-      return res.status(403).json({ error: 'Requête refusée (CSRF ou origine invalide).' });
-    }
-
-    req.session.notice = 'Requête refusée pour raison de sécurité.';
-    return res.redirect('/');
-  }
-
-  if (
+  const isApiRequest =
     req.path.startsWith('/liste') ||
     req.path.startsWith('/ajouter') ||
     req.path.startsWith('/effacer') ||
     req.path.startsWith('/modifier') ||
     req.path.startsWith('/deplacer') ||
-    req.path.startsWith('/events')
-  ) {
+    req.path.startsWith('/events');
+
+  if (res.headersSent) {
+    return next(error);
+  }
+
+  if (error.status === 403) {
+    if (isApiRequest) {
+      return res.status(403).json({ error: 'Requête refusée (CSRF ou origine invalide).' });
+    }
+
+    return res.status(403).send('Requête refusée pour raison de sécurité.');
+  }
+
+  if (isApiRequest) {
     return res.status(500).json({ error: 'Erreur interne du serveur.' });
   }
 
-  req.session.notice = 'Une erreur interne est survenue.';
-  return res.redirect('/');
+  // Avoid redirect loops when the home page itself is failing (e.g. database offline).
+  return res.status(500).send('Erreur interne du serveur. Verifiez PostgreSQL et reessayez.');
 });
 
 module.exports = app;

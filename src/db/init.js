@@ -72,7 +72,8 @@ async function main() {
     console.log('Database initialized successfully.');
     console.log(`Admin account: admin / ${env.adminDefaultPassword}`);
   } catch (error) {
-    console.error('Database initialization failed:', error.message);
+    const details = error && error.message ? error.message : String(error);
+    console.error('Database initialization failed:', details);
     process.exitCode = 1;
   } finally {
     await closeConnection();
