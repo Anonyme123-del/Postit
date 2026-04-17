@@ -68,3 +68,18 @@ async function ensureSpecialUsers() {
     [adminId, true, true, true, true]
   );
 }
+
+async function init() {
+  try {
+    await executeSchema();
+    console.log('Schema créé avec succès');
+    await ensureSpecialUsers();
+    console.log('Admin et Guest créés avec succès');
+  } catch (error) {
+    console.error('Erreur lors de l\'initialisation:', error);
+  } finally {
+    await closeConnection();
+  }
+}
+
+init();
