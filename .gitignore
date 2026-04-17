@@ -71,7 +71,7 @@ web_modules/
 !.env.example
 data/*.sqlite
 certs/*.pem
-source/config/env.js
+src/config/env.js
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
