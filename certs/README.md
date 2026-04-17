@@ -1,4 +1,4 @@
-Place ici les certificats HTTPS de developpement.
+Les certificats HTTPS de developpement.
 
 - key.pem
 - cert.pem

@@ -1,103 +1,170 @@
-# secure-postit-app
+# Secure Post-it App
 
-Projet Application web securisees.
+A secure, real-time collaborative post-it board application built with Node.js, Express, and PostgreSQL. Features user authentication, role-based permissions, and live updates between browsers.
 
-## Architecture retenue
+## 🚀 Features
 
-Stack proposee pour le projet:
+- **User Authentication**: Secure signup/login with bcrypt password hashing and session management
+- **Role-Based Access Control**: Admin, regular users, and guest permissions
+- **Real-time Collaboration**: Live updates between browsers using WebSockets
+- **Multiple Boards**: Support for multiple post-it boards via URL routing
+- **Responsive Design**: Mobile-friendly interface with touch support
+- **HTTPS Ready**: Built-in HTTPS support for production deployment
+- **PostgreSQL Database**: Robust data persistence with proper schema design
 
-- Node.js + Express
-- Nunjucks pour les vues serveur
-- PostgreSQL pour la base de donnees
-- Sessions avec `express-session`
-- `bcrypt` pour les mots de passe
-- HTTPS prevu des le depart dans l'architecture
+## 🛠️ Tech Stack
 
-Arborescence de depart:
+- **Backend**: Node.js + Express.js
+- **Database**: PostgreSQL
+- **Authentication**: bcrypt + express-session
+- **Templates**: Nunjucks (server-side rendering)
+- **Real-time**: Socket.io for live updates
+- **Security**: CSRF protection, input validation, secure headers
 
-```text
+## 📁 Project Structure
+
+```
 secure-postit-app/
-├── certs/
-├── data/
-├── public/
+├── public/                 # Static assets (CSS, JS)
 │   ├── css/
 │   └── js/
 ├── src/
-│   ├── config/
-│   ├── controllers/
-│   ├── db/
-│   ├── middleware/
-│   ├── models/
-│   ├── routes/
-│   ├── services/
-│   ├── views/
+│   ├── config/            # Configuration files
+│   ├── controllers/       # HTTP request handlers
+│   ├── db/               # Database schema and initialization
+│   ├── middleware/       # Authentication & permissions
+│   ├── models/           # Data models
+│   ├── routes/           # URL routing
+│   ├── services/         # Business logic
+│   ├── views/            # Nunjucks templates
 │   │   └── partials/
-│   ├── app.js
-│   └── server.js
-├── .env.example
-├── package.json
+│   ├── app.js           # Express app setup
+│   └── server.js        # Server startup
+├── .env                 # Environment variables
+├── package.json         # Dependencies and scripts
 └── README.md
 ```
 
-## Decoupage logique
+## 🗄️ Database Schema
 
-- `routes/`: declaration des URLs `/`, `/signup`, `/login`, `/logout`, `/ajouter`, `/effacer`, `/liste`, `/admin`
-- `controllers/`: gestion HTTP
-- `services/`: logique metier
-- `models/`: point d'entree des entites SQL
-- `middleware/`: authentification et permissions
-- `db/`: schema SQL et initialisation
-- `views/`: pages Nunjucks (`.njk`)
-- `public/`: CSS et JavaScript client
+The application uses PostgreSQL with the following main tables:
 
-## Schema de base de donnees prevu
+- `users` - User accounts with hashed passwords
+- `boards` - Multiple post-it boards
+- `postits` - Individual post-it notes with position, content, and metadata
+- `user_permissions` - Role-based access control (create, update, delete, admin)
 
-Tables de depart:
+## 🚀 Quick Start
 
-- `users`
-- `boards`
-- `user_permissions`
-- `postits`
+### Prerequisites
 
-Ce schema couvre deja les besoins obligatoires IRS:
+- Node.js (v16 or higher)
+- PostgreSQL (v12 or higher)
+- npm or yarn
 
-- utilisateurs et mots de passe
-- post-its avec texte, auteur, date, coordonnees
-- gestion des droits create, update, delete, admin
-- base prete pour plusieurs tableaux
+### Installation
 
-## Strategie de commits conseillee
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/uvsq22504751/secure-postit-app.git
+   cd secure-postit-app
+   ```
 
-1. `chore: initialise express project structure`
-2. `feat: add postgresql schema and database bootstrap`
-3. `feat: implement signup and login with sessions`
-4. `feat: display post-its on main board`
-5. `feat: create post-its with ajax on double click`
-6. `feat: allow owners to delete their post-its`
-7. `feat: add role-based permissions and admin page`
-8. `feat: enable https in development`
-9. `feat: make board responsive and add touch support`
-10. `feat: add live updates between browsers`
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-## Lancement prevu
+3. **Set up PostgreSQL**
+   - Install and start PostgreSQL
+   - Create a database named `postitdb`
+   - Update connection settings in `.env` if needed
 
-Vous devez avoir PostgreSQL installe et en cours d'execution.
+4. **Configure environment**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your PostgreSQL credentials
+   ```
 
-```bash
-npm install
-copy .env.example .env
-# Editez .env pour configurer DATABASE_URL avec vos parametres PostgreSQL
-npm run init-db
-npm run dev
-```
+5. **Initialize database**
+   ```bash
+   npm run init-db
+   ```
 
-## Fonctionnalites implementees
+6. **Start the application**
+   ```bash
+   npm run dev  # Development mode with auto-reload
+   # or
+   npm start    # Production mode
+   ```
 
-- Inscription et connexion utilisateurs (`bcrypt` + sessions)
-- Compte special `guest` (droits des non-connectes)
-- Compte admin de developpement cree a l'init DB (`admin / admin123`)
-- Tableau principal + tableaux multiples via URL (`/`, `/:slug`)
-- Affichage des post-its avec auteur/date/position
+The application will be available at `http://localhost:3000`
+
+### Default Admin Account
+
+After initialization, you can log in with:
+- **Username**: `admin`
+- **Password**: `Admn@2026Secure!` (configurable in `.env`)
+
+## 🔧 Development
+
+### Available Scripts
+
+- `npm run dev` - Start development server with auto-reload
+- `npm start` - Start production server
+- `npm run init-db` - Initialize/reset database
+- `npm test` - Run tests (when implemented)
+
+### Environment Variables
+
+Key configuration options in `.env`:
+
+- `PORT` - Server port (default: 3000)
+- `DATABASE_URL` - PostgreSQL connection string
+- `SESSION_SECRET` - Session encryption key
+- `ADMIN_DEFAULT_PASSWORD` - Default admin password
+- `HTTPS_ENABLED` - Enable HTTPS mode (requires certificates)
+
+### HTTPS Setup
+
+For production HTTPS:
+
+1. Place SSL certificates in `certs/` directory:
+   - `key.pem` - Private key
+   - `cert.pem` - SSL certificate
+
+2. Set `HTTPS_ENABLED=true` in `.env`
+
+## 🔒 Security Features
+
+- Password hashing with bcrypt
+- Session-based authentication
+- CSRF protection
+- Input validation and sanitization
+- Secure headers middleware
+- Role-based permissions system
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📝 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 👥 Authors
+
+- UVSQ22504751 - Initial development
+
+## 🙏 Acknowledgments
+
+- Built for educational purposes
+- Inspired by collaborative whiteboard applications
+- Uses modern web development best practices
 - Creation de post-it par double-clic (ou double tap)
 - Suppression avec confirmation
 - Modification de ses propres post-its
